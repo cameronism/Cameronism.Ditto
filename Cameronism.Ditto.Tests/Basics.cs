@@ -77,5 +77,18 @@ namespace Cameronism.Tests
 			var clone = Ditto.DeepClone(obj);
 			Assert.Equal(obj.Prop, clone.Prop);
 		}
+
+		[Fact]
+		public void CommonInterfaces()
+		{
+			var obj = new PropContainer<IEnumerable<int>> { Prop = Enumerable.Range(0, 10) };
+			var clone = Ditto.DeepClone(obj);
+			Assert.Equal(obj.Prop, clone.Prop);
+			Assert.NotSame(obj.Prop, clone.Prop);
+
+			obj = new PropContainer<IEnumerable<int>> { Prop = null };
+			clone = Ditto.DeepClone(obj);
+			Assert.Null(clone.Prop);
+		}
 	}
 }

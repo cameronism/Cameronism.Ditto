@@ -28,18 +28,13 @@ namespace Cameronism
 
 		public class Comparer<T> : IEqualityComparer<T>
 		{
-			readonly Func<T, T> deepClone;
+			public readonly Func<T, T> DeepClone;
 			readonly Func<T, int> getHashCode;
 			readonly Func<T, T, bool> equals;
 
 			internal Comparer()
 			{
-				Delegates.Create(out deepClone, out getHashCode, out equals);
-			}
-
-			public T DeepClone(T source)
-			{
-				return deepClone(source);
+				Delegates.Create(out DeepClone, out getHashCode, out equals);
 			}
 		
 			public bool Equals(T a, T b)
