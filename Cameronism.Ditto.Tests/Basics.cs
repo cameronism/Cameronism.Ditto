@@ -65,5 +65,17 @@ namespace Cameronism.Tests
 			Assert.Null(Ditto.DeepClone(new Outer()).Instance);
 		}
 
+		class PropContainer<T>
+		{
+			public T Prop { get; set; }
+		}
+
+		[Fact]
+		public void Properties()
+		{
+			var obj = new PropContainer<int> { Prop = 42 };
+			var clone = Ditto.DeepClone(obj);
+			Assert.Equal(obj.Prop, clone.Prop);
+		}
 	}
 }

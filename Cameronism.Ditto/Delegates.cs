@@ -9,6 +9,43 @@ namespace Cameronism
 {
 	internal static class Delegates
 	{
+		public class MemberDetail
+		{
+			public readonly string Name;
+			public readonly Type Type;
+			public readonly PropertyInfo Property;
+			public readonly FieldInfo Field;
+
+			private MemberDetail (PropertyInfo property)
+			{
+				Name = property.Name;
+				Type = property.PropertyType;
+				Property = property;
+			}
+
+			private MemberDetail (FieldInfo field)
+			{
+				Name = field.Name;
+				Type = field.FieldType;
+				Field = field;
+			}
+
+			public MemberExpression GetExpression(Expression instance)
+			{
+				return Field != null ?
+					Expression.Field(instance, Field) :
+					Expression.Property(instance, Property);
+			}
+
+			public static List<MemberDetail> FindInstanceMembers(Type type)
+			{
+				var members = new List<MemberDetail>();
+				members.AddRange(type.GetFields(BindingFlags.Instance | BindingFlags.Public).Select(fi => new MemberDetail(fi)));
+				members.AddRange(type.GetProperties(BindingFlags.Instance | BindingFlags.Public).Select(pi => new MemberDetail(pi)));
+				return members;
+			}
+		}
+
 		public static void Create<T>(out Func<T, T> deepClone, out Func<T, int> getHashCode, out Func<T, T, bool> equals)
 		{
 			var type = typeof(T);
@@ -37,22 +74,22 @@ namespace Cameronism
 			// destination = new {T}();
 			body.Add(Expression.Assign(destinationEx, Expression.New(type)));
 
-			foreach (var fi in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
+			foreach (var mi in MemberDetail.FindInstanceMembers(type))
 			{
-				Expression rhs = Expression.Field(sourceEx, fi);
-				if (fi.FieldType.IsClass && !IsImmutable(fi.FieldType))
+				Expression rhs = mi.GetExpression(sourceEx);
+				if (mi.Type.IsClass && !IsImmutable(mi.Type))
 				{
 					rhs = Expression.Condition(
-						Expression.Equal(rhs, Expression.Constant(null, fi.FieldType)),
-						Expression.Constant(null, fi.FieldType),
-						Expression.Call(_DittoClone.MakeGenericMethod(fi.FieldType), rhs),
-						fi.FieldType);
+						Expression.Equal(rhs, Expression.Constant(null, mi.Type)),
+						Expression.Constant(null, mi.Type),
+						Expression.Call(_DittoClone.MakeGenericMethod(mi.Type), rhs),
+						mi.Type);
 				}
 
 				// destination.{field} = source.{field};
 				body.Add(
 					Expression.Assign(
-						Expression.Field(destinationEx, fi),
+						mi.GetExpression(destinationEx),
 						rhs));
 			}
 
