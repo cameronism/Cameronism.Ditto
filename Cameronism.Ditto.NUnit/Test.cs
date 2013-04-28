@@ -60,6 +60,7 @@ namespace Cameronism.DittoNUnit
 			var copy = Ditto.DeepClone(obj);
 			Assert.AreNotSame(obj.Instance, copy.Instance);
 			Assert.AreSame(obj.Instance.B, copy.Instance.B);
+
 			
 			Assert.Null(Ditto.DeepClone(new Outer()).Instance);
 		}
@@ -88,6 +89,23 @@ namespace Cameronism.DittoNUnit
 			obj = new PropContainer<IEnumerable<int>> { Prop = null };
 			clone = Ditto.DeepClone(obj);
 			Assert.Null(clone.Prop);
+		}
+
+		[Test, Ignore("anonymous types don't work yet")]
+		public void AnonymousType_With_MutableMembers()
+		{
+			var obj = new { m = new MyType () };
+			var clone = Ditto.DeepClone (obj);
+			Assert.AreNotSame (obj, clone);
+		}
+
+		
+		[Test, Ignore("anonymous types don't work yet")]
+		public void AnonymousType_Without_MutableMembers()
+		{
+			var obj = new { a = 1, b = 0.5, c = "stringy" };
+			var clone = Ditto.DeepClone (obj);
+			Assert.ReferenceEquals (obj, clone);
 		}
 	}
 }
