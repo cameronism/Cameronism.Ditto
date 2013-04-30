@@ -91,7 +91,7 @@ namespace Cameronism.DittoNUnit
 			Assert.Null(clone.Prop);
 		}
 
-		[Test, Ignore("anonymous types don't work yet")]
+		[Test]
 		public void AnonymousType_With_MutableMembers()
 		{
 			var obj = new { m = new MyType () };
@@ -100,12 +100,15 @@ namespace Cameronism.DittoNUnit
 		}
 
 		
-		[Test, Ignore("anonymous types don't work yet")]
+		[Test]
 		public void AnonymousType_Without_MutableMembers()
 		{
 			var obj = new { a = 1, b = 0.5, c = "stringy" };
 			var clone = Ditto.DeepClone (obj);
-			Assert.ReferenceEquals (obj, clone);
+
+			//Assert.ReferenceEquals (obj, clone);
+
+			Assert.True(Object.ReferenceEquals(obj, clone), "immutable type should return same reference");
 		}
 	}
 }

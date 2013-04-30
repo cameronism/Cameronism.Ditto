@@ -37,6 +37,21 @@ namespace Cameronism
 					Expression.Property(instance, Property);
 			}
 
+			public Expression GetMemberCopy(Expression instance)
+			{
+				Expression rhs = GetExpression (instance);
+
+				if ((this.Type.IsClass || this.Type.IsInterface) && !IsImmutable(this.Type)) {
+					rhs = Expression.Condition(
+						Expression.Equal(rhs, Expression.Constant(null, this.Type)),
+						Expression.Constant(null, this.Type),
+						Expression.Call(_DittoClone.MakeGenericMethod(this.Type), rhs),
+						this.Type);
+				}
+
+				return rhs;
+			}
+
 			public static List<MemberDetail> FindInstanceMembers(Type type)
 			{
 				var members = new List<MemberDetail>();
@@ -66,41 +81,76 @@ namespace Cameronism
 
 		public static bool IsImmutable(Type type)
 		{
-			// TODO add test for anonymous types
-			return type == typeof(string);
+			return !Ditto._MutableTypeCache.IsMutable (type);
 		}
 
 		static readonly Func<int, int> _DittoCloneReference = Ditto.DeepClone<int>;
 		static readonly MethodInfo _DittoClone = _DittoCloneReference.Method.GetGenericMethodDefinition();
+
+		static bool TryCloneConstructor(Type type, Dictionary<string, MemberDetail> members, List<Expression> body, ParameterExpression sourceEx, ParameterExpression destinationEx)
+		{
+			ParameterInfo[] maxParameters = null;
+			ConstructorInfo maxCtor = null;
+
+			foreach (var ctor in type.GetConstructors ()) {
+				var parameters = ctor.GetParameters();
+
+				// there's a parameterless ctor -- bail
+				if (parameters.Length == 0) {
+					return false;
+				}
+
+				// one of the parameter names doesn't match a public property -- skip this one
+				if (!parameters.All(mi => members.ContainsKey(mi.Name))) {
+					continue;
+				}
+
+				if (maxParameters == null || parameters.Length > maxParameters.Length) {
+					maxParameters = parameters;
+					maxCtor = ctor;
+				}
+			}
+
+			if (maxCtor == null) {
+				throw new Exception("No suitable constructors were found to clone type: " + type.FullName);
+			}
+
+			// destination = new {T}(...);
+			body.Add(Expression.Assign(
+				destinationEx, 
+				Expression.New(
+					maxCtor, 
+					maxParameters
+						.Select(param => members[param.Name].GetMemberCopy(sourceEx)))));
+
+			return true;
+		}
+
+		static void CloneMembers(Type type, Dictionary<string, MemberDetail> members, List<Expression> body, ParameterExpression sourceEx, ParameterExpression destinationEx)
+		{
+			// destination = new {T}();
+			body.Add(Expression.Assign(destinationEx, Expression.New(type)));
+			
+			foreach (var mi in members.Values) {
+				
+				// destination.{field} = source.{field};
+				body.Add(
+					Expression.Assign(
+					mi.GetExpression(destinationEx),
+					mi.GetMemberCopy(sourceEx)));
+			}
+		}
 
 		static Func<T, T> GetClassCloneMethod<T>(Type type)
 		{
 			var body = new List<Expression>();
 			var sourceEx = Expression.Parameter(type, "source");
 			var destinationEx = Expression.Variable(type, "destination");
+			var members = MemberDetail.FindInstanceMembers(type).ToDictionary(mi => mi.Name);
 
-			// destination = new {T}();
-			body.Add(Expression.Assign(destinationEx, Expression.New(type)));
-
-			foreach (var mi in MemberDetail.FindInstanceMembers(type))
-			{
-				Expression rhs = mi.GetExpression(sourceEx);
-				if ((mi.Type.IsClass || mi.Type.IsInterface) && !IsImmutable(mi.Type))
-				{
-					rhs = Expression.Condition(
-						Expression.Equal(rhs, Expression.Constant(null, mi.Type)),
-						Expression.Constant(null, mi.Type),
-						Expression.Call(_DittoClone.MakeGenericMethod(mi.Type), rhs),
-						mi.Type);
-				}
-
-				// destination.{field} = source.{field};
-				body.Add(
-					Expression.Assign(
-						mi.GetExpression(destinationEx),
-						rhs));
+			if (!TryCloneConstructor (type, members, body, sourceEx, destinationEx)) {
+				CloneMembers (type, members, body, sourceEx, destinationEx);
 			}
-
 
 			// if (source == null) 
 			// { destination = null; }

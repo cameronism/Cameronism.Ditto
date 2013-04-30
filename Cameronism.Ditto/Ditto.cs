@@ -26,7 +26,7 @@ namespace Cameronism
 
 		static readonly Dictionary<Type, object> _Cache = new Dictionary<Type, object>();
 
-		static readonly MutableTypeCache _MutableTypeCache = new MutableTypeCache();
+		internal static readonly MutableTypeCache _MutableTypeCache = new MutableTypeCache();
 		public static bool IsMutable(Type type)
 		{
 			return _MutableTypeCache.IsMutable (type);
